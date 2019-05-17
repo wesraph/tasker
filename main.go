@@ -1,7 +1,16 @@
 package tasker
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
+
+	"github.com/kr/pretty"
+	_ "github.com/lib/pq"
+	"github.com/volatiletech/sqlboiler/queries/qm"
+
+	"github.com/volatiletech/sqlboiler/boil"
+	m "github.com/wesraph/tasker/models"
 )
 
 var ErrStepNotFound = fmt.Errorf("Step not found")
@@ -11,6 +20,9 @@ var ErrMissingSteps = fmt.Errorf("Missing steps in task")
 var ErrMissingExecFunction = fmt.Errorf("Missing exec function")
 var ErrReachedMaxRetry = fmt.Errorf("Reached max retry for task")
 var ErrReachedEndOfTask = fmt.Errorf("Reached end of task")
+
+var ctx context.Context
+var dbh *sql.DB
 
 type Step struct {
 	Name string
@@ -29,7 +41,35 @@ type Task struct {
 	Args       map[string]string
 }
 
+type Scheduler struct {
+	Tasks []Task
+}
+
 func init() {
+}
+
+// Init the database connection and context
+func Init(db *sql.DB) {
+	boil.SetDB(dbh)
+	ctx = context.Background()
+}
+
+// Execute all the tasks in db
+func Exec() error {
+
+	// Query all users
+	tasks, err := m.Tasks(qm.Where("name = ?", "pouet")).All(ctx, dbh)
+
+	if err != nil {
+		return err
+	}
+
+	for _, task := range tasks {
+		pretty.Println(task)
+	}
+
+	return nil
+
 }
 
 func (t *Task) Exec() error {
