@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/kr/pretty"
 	_ "github.com/lib/pq"
@@ -50,22 +51,45 @@ func Init(db *sql.DB) {
 	ctx = context.Background()
 }
 
-// Execute all the tasks in db
-func Exec() error {
+// Exec execute all tasks in the scheduler
+func (s *Scheduler) Exec() error {
+	fmt.Println("Launching scheduler")
+	for {
+		//Get all tasks waiting in db
+		todoTasks, err := m.Tasks(qm.Where("todo_date<?", time.Now()), qm.And("status=?", m.TaskStatusTodo)).All(ctx, dbh)
+		if err != nil {
+			return err
+		}
 
-	// Query all users
-	tasks, err := m.Tasks(qm.Where("name = ?", "pouet")).All(ctx, dbh)
+		for _, todoTask := range todoTasks {
+			//Find corresponding task
+			var fnt Task
+			for _, findNewTask := range s.Tasks {
+				if findNewTask.Name == todoTask.Name {
+					fnt = findNewTask
+				}
+			}
 
-	if err != nil {
-		return err
+			if fnt.Name == "" {
+				//TODO:Log error and commit status error
+				continue
+			}
+
+			execTask := fnt
+			execTask.UserTask = todoTask
+
+			fmt.Println("Executing task")
+			pretty.Println(execTask)
+
+			err = execTask.Exec()
+			if err != nil {
+				//TODO:Log error and commit status error
+				pretty.Println(err)
+			}
+		}
+		break
 	}
-
-	for _, task := range tasks {
-		pretty.Println(task)
-	}
-
 	return nil
-
 }
 
 func (t *Task) Exec() error {
