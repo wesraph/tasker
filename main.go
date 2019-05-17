@@ -20,6 +20,7 @@ var ErrMissingSteps = fmt.Errorf("Missing steps in task")
 var ErrMissingExecFunction = fmt.Errorf("Missing exec function")
 var ErrReachedMaxRetry = fmt.Errorf("Reached max retry for task")
 var ErrReachedEndOfTask = fmt.Errorf("Reached end of task")
+var ErrNilUserTask = fmt.Errorf("User task is nil")
 
 var ctx context.Context
 var dbh *sql.DB
@@ -30,15 +31,10 @@ type Step struct {
 }
 
 type Task struct {
-	ID         string
-	Name       string
-	ActualStep string
-	Status     string
-	Steps      []Step
-	Retry      int
-	MaxRetry   int
-	Buffer     map[string]string
-	Args       map[string]string
+	Name     string
+	Steps    []Step
+	UserTask *m.Task
+	MaxRetry int
 }
 
 type Scheduler struct {
@@ -82,21 +78,21 @@ func (t *Task) Exec() error {
 	for {
 		err = actStep.Exec(t)
 		if err != nil {
-			if t.Retry+1 >= t.MaxRetry {
+			if t.UserTask.Retry+1 >= t.MaxRetry {
 				return ErrReachedMaxRetry
 			}
 
-			t.Retry++
+			t.UserTask.Retry++
 		} else {
 			actStep, err = t.getNextStep()
 			if err == ErrReachedEndOfTask {
-				t.Status = "done"
+				t.UserTask.Status = m.TaskStatusDone
 				return nil
 			} else if err != nil {
 				return err
 			}
 
-			t.ActualStep = actStep.Name
+			t.UserTask.ActualStep = actStep.Name
 		}
 	}
 
@@ -120,25 +116,29 @@ func (t *Task) initValidate() error {
 		}
 	}
 
-	if t.ActualStep == "" {
-		t.ActualStep = t.Steps[0].Name
+	if t.UserTask == nil {
+		return ErrNilUserTask
 	}
 
-	if t.Status == "" {
-		t.Status = "todo"
+	if t.UserTask.ActualStep == "" {
+		t.UserTask.ActualStep = t.Steps[0].Name
+	}
+
+	if t.UserTask.Status == "" {
+		t.UserTask.Status = m.TaskStatusTodo
 	}
 
 	return nil
 }
 
 func (t *Task) getActualStep() (*Step, error) {
-	if t.ActualStep == "" {
+	if t.UserTask.ActualStep == "" {
 		return &t.Steps[0], nil
 	}
 
 	// Find the next step
 	for _, s := range t.Steps {
-		if s.Name == t.ActualStep {
+		if s.Name == t.UserTask.ActualStep {
 			return &s, nil
 		}
 	}
@@ -147,13 +147,13 @@ func (t *Task) getActualStep() (*Step, error) {
 }
 
 func (t *Task) getNextStep() (*Step, error) {
-	if t.ActualStep == "" {
+	if t.UserTask.ActualStep == "" {
 		return nil, ErrStepNotFound
 	}
 
 	// Find the next step
 	for i, s := range t.Steps {
-		if s.Name == t.ActualStep {
+		if s.Name == t.UserTask.ActualStep {
 			if i+1 < len(t.Steps) {
 				return &t.Steps[i+1], nil
 			}
