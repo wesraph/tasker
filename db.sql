@@ -2,7 +2,7 @@ DROP TABLE IF EXISTS "tasks" ;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 DROP TYPE IF EXISTS task_status;
-CREATE TYPE task_status AS ENUM ('todo', 'error', 'done');
+CREATE TYPE task_status AS ENUM ('todo', 'error', 'done', 'doing');
 
 CREATE TABLE "tasks" (
     id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
