@@ -14,23 +14,28 @@ import (
 	m "github.com/wesraph/tasker/models"
 )
 
-var ErrStepNotFound = fmt.Errorf("Step not found")
-var ErrMissingTaskName = fmt.Errorf("Missing task name")
-var ErrMissingStepName = fmt.Errorf("Missing step name")
-var ErrMissingSteps = fmt.Errorf("Missing steps in task")
-var ErrMissingExecFunction = fmt.Errorf("Missing exec function")
-var ErrReachedMaxRetry = fmt.Errorf("Reached max retry for task")
-var ErrReachedEndOfTask = fmt.Errorf("Reached end of task")
-var ErrNilUserTask = fmt.Errorf("User task is nil")
+// Typed errors
+var (
+	ErrStepNotFound        = fmt.Errorf("step not found")
+	ErrMissingTaskName     = fmt.Errorf("missing task name")
+	ErrMissingStepName     = fmt.Errorf("missing step name")
+	ErrMissingSteps        = fmt.Errorf("missing steps in task")
+	ErrMissingExecFunction = fmt.Errorf("missing exec function")
+	ErrReachedMaxRetry     = fmt.Errorf("reached max retry for task")
+	ErrReachedEndOfTask    = fmt.Errorf("reached end of task")
+	ErrNilUserTask         = fmt.Errorf("user task is nil")
+)
 
 var ctx context.Context
 var dbh *sql.DB
 
+// Step is a function to execute
 type Step struct {
 	Name string
 	Exec func(t *Task) error
 }
 
+// Task is a group of steps
 type Task struct {
 	Name     string
 	Steps    []Step
@@ -38,6 +43,7 @@ type Task struct {
 	MaxRetry int
 }
 
+// Scheduler is a group of tasks
 type Scheduler struct {
 	Tasks []Task
 }
@@ -92,6 +98,7 @@ func (s *Scheduler) Exec() error {
 	return nil
 }
 
+// Exec execute at task
 func (t *Task) Exec() error {
 	err := t.initValidate()
 	if err != nil {
@@ -109,6 +116,7 @@ func (t *Task) Exec() error {
 			t.UserTask.Retry++
 		} else {
 			actStep, err = t.getNextStep()
+
 			if err == ErrReachedEndOfTask {
 				t.UserTask.Status = m.TaskStatusDone
 				return nil

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kr/pretty"
 	"github.com/volatiletech/sqlboiler/boil"
 	m "github.com/wesraph/tasker/models"
 )
@@ -230,13 +229,11 @@ func cleanDB(table string) error {
 func TestScheduler(t *testing.T) {
 	err := getDBHandler()
 	if err != nil {
-		pretty.Println(err)
 		t.Errorf("Cannot get db handler")
 	}
 
 	err = cleanDB("tasks")
 	if err != nil {
-		pretty.Println(err)
 		t.Errorf("Cannot clean db")
 	}
 
@@ -250,7 +247,6 @@ func TestScheduler(t *testing.T) {
 	}
 	err = userTask.Insert(ctx, dbh, boil.Infer())
 	if err != nil {
-		pretty.Println(err)
 		t.Errorf("Cannot insert task in db")
 	}
 
@@ -264,7 +260,6 @@ func TestScheduler(t *testing.T) {
 	}
 	err = userTask2.Insert(ctx, dbh, boil.Infer())
 	if err != nil {
-		pretty.Println(err)
 		t.Errorf("Cannot insert task in db")
 	}
 	s := &Scheduler{
@@ -287,7 +282,6 @@ func TestScheduler(t *testing.T) {
 
 	err = s.Exec()
 	if err != nil {
-		pretty.Println(err)
 		t.Errorf("Failing using scheduler")
 	}
 }
