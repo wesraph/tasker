@@ -2,16 +2,61 @@ package tasker
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/kr/pretty"
 	"github.com/volatiletech/sqlboiler/boil"
+	"github.com/wesraph/tasker/models"
 	m "github.com/wesraph/tasker/models"
 )
 
+func init() {
+	getDBHandler()
+}
+
+// Buffer is the task buffer
+type Buffer struct {
+	UserAddress string `json:"user_address"`
+	NodeID      string `json:"node_id"`
+}
+
+func getBuffer(t *UserTask) (*Buffer, error) {
+	if t.Buffer != nil {
+		return t.Buffer.(*Buffer), nil
+	}
+
+	t.Buffer = &Buffer{}
+	if !t.UserBuffer.Valid {
+		return t.Buffer.(*Buffer), nil
+	}
+	return t.Buffer.(*Buffer), json.Unmarshal(t.UserBuffer.JSON, t.Buffer)
+}
+
 func testStep(t *Task) error {
 	fmt.Println("step1")
+	return nil
+}
+
+func testStepBuffer(t *Task) error {
+	b, err := getBuffer(t.UserTask)
+	if err != nil {
+		return nil
+	}
+
+	b.UserAddress = "salutsalut"
+	return nil
+}
+
+func testShowBuffer(t *Task) error {
+	b, err := getBuffer(t.UserTask)
+	if err != nil {
+		return nil
+	}
+
+	pretty.Println(b)
 	return nil
 }
 
@@ -32,12 +77,15 @@ func testRenameNextStep(t *Task) error {
 func TestExec1(t *testing.T) {
 	task := &Task{
 		Name: "test",
-		UserTask: &m.Task{
-			ActualStep: "step1",
-			CreatedAt:  time.Now(),
-			TodoDate:   time.Now(),
-			Status:     m.TaskStatusTodo,
-			Retry:      0,
+		UserTask: &UserTask{
+			Task: &m.Task{
+				ID:         "c9f51923-293a-4e3b-a49f-cccd71db4679",
+				ActualStep: "step1",
+				CreatedAt:  time.Now(),
+				TodoDate:   time.Now(),
+				Status:     m.TaskStatusTodo,
+				Retry:      0,
+			},
 		},
 		Steps: []Step{
 			{
@@ -60,12 +108,15 @@ func TestExec1(t *testing.T) {
 func TestExec2(t *testing.T) {
 	task := &Task{
 		Name: "test",
-		UserTask: &m.Task{
-			ActualStep: "step1",
-			CreatedAt:  time.Now(),
-			TodoDate:   time.Now(),
-			Status:     m.TaskStatusTodo,
-			Retry:      0,
+		UserTask: &UserTask{
+			Task: &m.Task{
+				ID:         "c9f51923-293a-4e3b-a49f-cccd71db4679",
+				ActualStep: "step1",
+				CreatedAt:  time.Now(),
+				TodoDate:   time.Now(),
+				Status:     m.TaskStatusTodo,
+				Retry:      0,
+			},
 		},
 		Steps: []Step{
 			{
@@ -87,12 +138,15 @@ func TestExec2(t *testing.T) {
 
 func TestExec3(t *testing.T) {
 	task := &Task{
-		UserTask: &m.Task{
-			ActualStep: "step1",
-			CreatedAt:  time.Now(),
-			TodoDate:   time.Now(),
-			Status:     m.TaskStatusTodo,
-			Retry:      0,
+		UserTask: &UserTask{
+			Task: &models.Task{
+				ID:         "c9f51923-293a-4e3b-a49f-cccd71db4679",
+				ActualStep: "step1",
+				CreatedAt:  time.Now(),
+				TodoDate:   time.Now(),
+				Status:     m.TaskStatusTodo,
+				Retry:      0,
+			},
 		},
 		Steps: []Step{
 			{
@@ -115,12 +169,15 @@ func TestExec3(t *testing.T) {
 func TestRetry(t *testing.T) {
 	task := &Task{
 		Name: "test",
-		UserTask: &m.Task{
-			ActualStep: "step1",
-			CreatedAt:  time.Now(),
-			TodoDate:   time.Now(),
-			Status:     m.TaskStatusTodo,
-			Retry:      0,
+		UserTask: &UserTask{
+			Task: &models.Task{
+				ID:         "c9f51923-293a-4e3b-a49f-cccd71db4679",
+				ActualStep: "step1",
+				CreatedAt:  time.Now(),
+				TodoDate:   time.Now(),
+				Status:     m.TaskStatusTodo,
+				Retry:      0,
+			},
 		},
 		Steps: []Step{
 			{
@@ -143,12 +200,15 @@ func TestRetry(t *testing.T) {
 func UnnamedTask(t *testing.T) {
 	task := &Task{
 		Name: "test",
-		UserTask: &m.Task{
-			ActualStep: "step1",
-			CreatedAt:  time.Now(),
-			TodoDate:   time.Now(),
-			Status:     m.TaskStatusTodo,
-			Retry:      0,
+		UserTask: &UserTask{
+			Task: &models.Task{
+				ID:         "c9f51923-293a-4e3b-a49f-cccd71db4679",
+				ActualStep: "step1",
+				CreatedAt:  time.Now(),
+				TodoDate:   time.Now(),
+				Status:     m.TaskStatusTodo,
+				Retry:      0,
+			},
 		},
 		Steps: []Step{
 			{
@@ -171,13 +231,14 @@ func UnnamedTask(t *testing.T) {
 func RenameTask(t *testing.T) {
 	task := &Task{
 		Name: "test",
-		UserTask: &m.Task{
-			ActualStep: "step1",
-			CreatedAt:  time.Now(),
-			TodoDate:   time.Now(),
-			Status:     m.TaskStatusTodo,
-			Retry:      0,
-		},
+		UserTask: &UserTask{
+			Task: &m.Task{
+				ActualStep: "step1",
+				CreatedAt:  time.Now(),
+				TodoDate:   time.Now(),
+				Status:     m.TaskStatusTodo,
+				Retry:      0,
+			}},
 		Steps: []Step{
 			{
 				Name: "step1",
@@ -202,7 +263,7 @@ func getDBHandler() error {
 	}
 
 	var err error
-	dbh, err = sql.Open("postgres", "dbname=test user=root password=root sslmode=disable")
+	dbh, err = sql.Open("postgres", "host=localhost port=5433 sslmode=disable dbname=test user=root password=root")
 	if err != nil {
 		return err
 	}
@@ -234,7 +295,7 @@ func TestScheduler(t *testing.T) {
 
 	err = cleanDB("tasks")
 	if err != nil {
-		t.Errorf("Cannot clean db")
+		t.Errorf("Cannot clean db:" + err.Error())
 	}
 
 	userTask := &m.Task{
@@ -272,8 +333,16 @@ func TestScheduler(t *testing.T) {
 						Exec: testStep,
 					},
 					{
+						Name: "stepBuffer",
+						Exec: testStepBuffer,
+					},
+					{
 						Name: "step2",
 						Exec: testStep2,
+					},
+					{
+						Name: "stepShowBuffer",
+						Exec: testShowBuffer,
 					},
 				},
 			},
@@ -282,6 +351,6 @@ func TestScheduler(t *testing.T) {
 
 	err = s.Exec()
 	if err != nil {
-		t.Errorf("Failing using scheduler")
+		t.Errorf("Failing using scheduler" + err.Error())
 	}
 }

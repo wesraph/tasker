@@ -12,6 +12,6 @@ CREATE TABLE "tasks" (
     actual_step VARCHAR(255) NOT NULL,
     status task_status DEFAULT 'todo' NOT NULL,
     retry int DEFAULT 0 NOT NULL,
-    buffer JSON,
-    args JSON
+    user_buffer JSON,
+    user_args JSON
 );

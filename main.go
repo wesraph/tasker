@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/kr/pretty"
+
+	// Import pq globally
 	_ "github.com/lib/pq"
+	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
 
-	"github.com/volatiletech/sqlboiler/boil"
 	m "github.com/wesraph/tasker/models"
 )
 
@@ -39,8 +41,28 @@ type Step struct {
 type Task struct {
 	Name     string
 	Steps    []Step
-	UserTask *m.Task
+	UserTask *UserTask
 	MaxRetry int
+}
+
+// UserTask is a user task
+type UserTask struct {
+	Buffer interface{}
+	Args   interface{}
+	*m.Task
+}
+
+// UpdateDB update the task in db
+func (u UserTask) UpdateDB() error {
+	var err error
+	if u.Buffer != nil {
+		err = u.UserBuffer.Marshal(u.Buffer)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = u.Update(ctx, dbh, boil.Infer())
+	return err
 }
 
 // Scheduler is a group of tasks
@@ -48,12 +70,9 @@ type Scheduler struct {
 	Tasks []Task
 }
 
-func init() {
-}
-
 // Init the database connection and context
 func Init(db *sql.DB) {
-	boil.SetDB(dbh)
+	dbh = db
 	ctx = context.Background()
 }
 
@@ -67,8 +86,11 @@ func (s *Scheduler) Exec() error {
 			return err
 		}
 
-		for _, todoTask := range todoTasks {
+		for _, todoTaskDB := range todoTasks {
 			//Find corresponding task
+			todoTask := &UserTask{
+				Task: todoTaskDB,
+			}
 			var fnt Task
 			for _, findNewTask := range s.Tasks {
 				if findNewTask.Name == todoTask.Name {
@@ -78,19 +100,22 @@ func (s *Scheduler) Exec() error {
 
 			if fnt.Name == "" {
 				//TODO:Log error and commit status error
+				fmt.Println("tasker: task type not found")
 				continue
 			}
 
 			execTask := fnt
 			execTask.UserTask = todoTask
 
-			fmt.Println("Executing task")
-			pretty.Println(execTask)
-
 			err = execTask.Exec()
 			if err != nil {
 				//TODO:Log error and commit status error
 				pretty.Println(err)
+			}
+
+			err := execTask.UserTask.UpdateDB()
+			if err != nil {
+				return err
 			}
 		}
 		break
@@ -114,17 +139,23 @@ func (t *Task) Exec() error {
 			}
 
 			t.UserTask.Retry++
-		} else {
-			actStep, err = t.getNextStep()
+			return nil
+		}
 
-			if err == ErrReachedEndOfTask {
-				t.UserTask.Status = m.TaskStatusDone
-				return nil
-			} else if err != nil {
-				return err
-			}
+		actStep, err = t.getNextStep()
 
-			t.UserTask.ActualStep = actStep.Name
+		if err == ErrReachedEndOfTask {
+			t.UserTask.Status = m.TaskStatusDone
+			return nil
+		} else if err != nil {
+			return err
+		}
+
+		t.UserTask.ActualStep = actStep.Name
+
+		err = t.UserTask.UpdateDB()
+		if err != nil {
+			return err
 		}
 	}
 
