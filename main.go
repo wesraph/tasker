@@ -81,6 +81,7 @@ func (s *Scheduler) Exec() error {
 	fmt.Println("Launching scheduler")
 	for {
 		//Get all tasks waiting in db
+		fmt.Println("Checking new tasks")
 		todoTasks, err := m.Tasks(qm.Where("todo_date<?", time.Now()), qm.And("status=?", m.TaskStatusTodo)).All(ctx, dbh)
 		if err != nil {
 			return err
@@ -118,9 +119,9 @@ func (s *Scheduler) Exec() error {
 				return err
 			}
 		}
-		break
+
+		time.Sleep(time.Second)
 	}
-	return nil
 }
 
 // Exec execute at task
