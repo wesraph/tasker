@@ -109,15 +109,20 @@ func (s *Scheduler) Exec() error {
 			execTask.UserTask = todoTask
 
 			err = execTask.Exec()
-			if err != nil {
+			if err != nil && err == ErrReachedMaxRetry {
 				//TODO:Log error and commit status error
+				fmt.Println("Task reached max retry count, setting state error")
+				execTask.UserTask.Status = m.TaskStatusError
+			} else if err != nil {
 				pretty.Println(err)
 			}
 
+			fmt.Println("Update task in DB")
 			err := execTask.UserTask.UpdateDB()
 			if err != nil {
 				return err
 			}
+			fmt.Println("Ok")
 		}
 
 		time.Sleep(time.Second)
@@ -135,6 +140,8 @@ func (t *Task) Exec() error {
 	for {
 		err = actStep.Exec(t)
 		if err != nil {
+			fmt.Printf("Step %s failed : %s\n", actStep.Name, err.Error())
+
 			if t.UserTask.Retry+1 >= t.MaxRetry {
 				return ErrReachedMaxRetry
 			}
